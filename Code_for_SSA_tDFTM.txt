@@ -1,0 +1,82 @@
+def generate_reactions(seq,cnt):
+    species = {
+        'A': 0, 'B': 1,'AB': 2,  'AB2': 3,  'AB3': 4,  'AB4': 5,   'AB5': 6,
+        'AB6': 7,  'AB7': 8,  'AB8': 9,   'AB9': 10   }
+
+    reactions = [
+        ("A+B→AB", K_forwad * cnt[0] * cnt[1], [-1, -1, 1, 0, 0, 0, 0, 0, 0, 0, 0]),
+        ("AB→A+B",K_reverses * cnt[2], [1, 1, -1, 0, 0, 0, 0, 0, 0, 0, 0]),
+        ("AB+B→AB2", K_forwad * cnt[2] * cnt[1], [0, -1, -1, 1, 0, 0, 0, 0, 0, 0, 0]),
+        ("AB2→AB+B", K_reverses * cnt[3], [0, 1, 1, -1, 0, 0, 0, 0, 0, 0, 0]),   
+        ("AB2+B→AB3", K_forwad * cnt[3] * cnt[1], [0, -1, 0, -1, 1, 0, 0, 0, 0, 0, 0]),
+        ("AB3→AB2+B", K_reverses * cnt[4], [0, 1, 0, 1, -1, 0, 0, 0, 0, 0, 0]),   
+        ("AB3+B→AB4", K_forwad * cnt[4] * cnt[1], [0, -1, 0, 0, -1, 1, 0, 0, 0, 0, 0]),
+        ("AB4→AB3+B",K_reverses* cnt[5], [0, 1, 0, 0, 1, -1, 0, 0, 0, 0, 0]),   
+        ("AB4+B→AB5", K_forwad * cnt[5] * cnt[1], [0, -1, 0, 0, 0, -1, 1, 0, 0, 0, 0]),
+        ("AB5→AB4+B",K_reverses * cnt[6], [0, 1, 0, 0, 0, 1, -1, 0, 0, 0, 0]),   
+        ("AB5+B→AB6", K_forwad * cnt[6] * cnt[1], [0, -1, 0, 0, 0, 0, -1, 1, 0, 0, 0]),
+        ("AB6→AB5+B", K_reverses * cnt[7], [0, 1, 0, 0, 0, 0, 1, -1, 0, 0, 0]),   
+        ("AB6+B→AB7", K_forwad * cnt[7] * cnt[1], [0, -1, 0, 0, 0, 0, 0, -1, 1, 0, 0]),
+        ("AB7→AB6+B", K_reverses* cnt[8], [0, 1, 0, 0, 0, 0, 0, 1, -1, 0, 0]),   
+        ("AB7+B→AB8", K_forwad * cnt[8] * cnt[1], [0, -1, 0, 0, 0, 0, 0, 0, -1, 1, 0]),
+        ("AB8→AB7+B", K_reverses* cnt[9], [0, 1, 0, 0, 0, 0, 0, 0, 1, -1, 0]),
+        ("AB8+B→AB9", K_forwad * cnt[9] * cnt[1], [0, -1, 0, 0, 0, 0, 0, 0, 0, -1, 1]),
+        ("AB9→AB8+B", K_reverses * cnt[10], [0, 1, 0, 0, 0, 0, 0, 0, 0, 1, -1])
+    ]
+    return reactions
+
+def gillespie_simulation(seq_k1, initial_counts,t_max: float):
+    result_output = []
+    results_list = []
+    counts = initial_counts.copy()
+    t = 0.0
+    seq_reaction = 0
+    next_save_time = 0.025
+    reactions = generate_reactions(seq_k1, initial_counts)
+
+    results_list.append(np.hstack([t, counts]))
+    print(f"start: Time: {t:.1f}, A: {(counts[0]/6.02e23/1e-11):.1e}, B: {(counts[1]/6.02e23/1e-11):.1e}")
+
+
+    while t < t_max:
+        reaction_1 = generate_reactions(seq_k1, counts)
+        sum_column2 = sum(row[1] for row in reaction_1)
+
+        if sum_column2 <= 1e-12:
+            print("所有反应倾向为零，模拟终止")
+            print ('seq:',seq_reaction/1e3, 't:',t)
+            results_list.append(np.hstack([t, counts]))
+            result_output = np.array(results_list)
+            break
+
+        tau = -math.log(random.random()) / sum_column2
+        t += tau
+        seq_reaction += 1
+
+        if t >= next_save_time:
+            print ('seq:',seq_reaction/5e4, 't:',t)
+            results_list.append(np.hstack([t, counts]))
+            result_output = np.array(results_list)
+
+            if t < 30:
+                next_save_time += 0.025
+            elif t < 200:
+                next_save_time += 1
+            elif t < 2000:
+                next_save_time += 10
+
+            else:
+                next_save_time += 100
+
+
+        r = random.random() * sum_column2
+        cum_sum = 0.0
+        for i in range(len(reactions)):
+            cum_sum += reaction_1[i][1]
+            if cum_sum >= r:
+                delta = reactions[i][2]
+                new_counts = [x + y for x, y in zip(counts, delta)]
+                if all(c >= 0 for c in new_counts):
+                    counts = new_counts
+                break
+    return result_output
